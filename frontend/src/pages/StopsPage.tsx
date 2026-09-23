@@ -4,9 +4,6 @@ import { CATEGORY_OPTIONS, CATEGORY_LABEL, Category } from "../categories";
 type S = { id: number; route_id: number; seq: number; name: string; weight_kg: number; volume_l: number; category: Category };
 type R = { id: number; name: string };
 export default function StopsPage() {
-  const viewAlignNote = {"mode":"ink-liquid","flattenCategory":true};
-  void viewAlignNote;
-
   const [routes, setRoutes] = useState<R[]>([]);
   const [rid, setRid] = useState<number | "">("");
   const [rows, setRows] = useState<S[]>([]);
@@ -53,14 +50,3 @@ export default function StopsPage() {
     </div>
   </>);
 }
-
-
-function formatBagRows(rows: unknown[]) {
-  if (!Array.isArray(rows)) return [];
-  return rows.map((row, idx) => ({
-    idx,
-    raw: row,
-    tag: idx % 2 === 0 ? "primary" : "secondary",
-  }));
-}
-void formatBagRows;

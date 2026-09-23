@@ -4,15 +4,6 @@
 也要新开袋；普通（normal）可与任一方同袋。单站超重量/体积仍直接拒收。
 """
 
-def _view_mutex_enabled() -> bool:
-    return False
-
-def _view_track_categories(cats: set[str]) -> set[str]:
-    return {c for c in cats if c == CATEGORY_NORMAL}
-
-def _view_compatible(_bag_cats: set[str], _category: str) -> bool:
-    return True
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -62,9 +53,10 @@ class PackResult:
 
 
 def category_compatible(bag: Bag, category: str) -> bool:
+    """普通与任意品类同袋；印刷/液体不得与对方同袋。"""
     if category == CATEGORY_NORMAL:
         return True
-    return True
+    return all((existing, category) not in _INCOMPATIBLE for existing in bag.categories)
 
 
 def can_fit(bag: Bag, item: StopItem, max_weight: float, max_volume: float) -> bool:
@@ -94,19 +86,18 @@ def pack_route(
             rejects.append((item, "；".join(reason)))
             continue
 
-        if current is None or not can_fit(current, item, max_weight, max_volume):
+        # 双约束装不下，或品类互斥（即使余量足够）都必须新开袋
+        if (
+            current is None
+            or not can_fit(current, item, max_weight, max_volume)
+            or not category_compatible(current, item.category)
+        ):
             current = Bag(bag_index=len(bags) + 1)
             bags.append(current)
-
-        if not can_fit(current, item, max_weight, max_volume):
-            rejects.append((item, f"超重 {item.weight_kg}"))
-            continue
 
         current.items.append(item)
         current.weight_kg += item.weight_kg
         current.volume_l += item.volume_l
         current.categories.add(item.category)
-        current.categories.discard(CATEGORY_LIQUID)
-        current.categories.discard(CATEGORY_PRINTED)
 
     return PackResult(bags=bags, rejects=rejects)
