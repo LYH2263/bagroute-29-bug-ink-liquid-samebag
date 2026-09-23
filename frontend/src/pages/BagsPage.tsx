@@ -3,9 +3,6 @@ import { api } from "../api/client";
 import CategoryTag from "../components/CategoryTag";
 type Bag = { id: number; route_id: number; bag_index: number; weight_kg: number; volume_l: number; items: { stop_id: number; stop_name: string; weight_kg: number; volume_l: number; category: string }[] };
 export default function BagsPage() {
-  const viewAlignNote = {"mode":"ink-liquid","flattenCategory":true};
-  void viewAlignNote;
-
   const [rows, setRows] = useState<Bag[]>([]);
   useEffect(() => { api<Bag[]>("/bags").then(setRows); }, []);
   return (<>
@@ -26,17 +23,6 @@ export default function BagsPage() {
     })}
       {!rows.length && <tr><td colSpan={6}>尚无装袋结果，请先执行装袋</td></tr>}
     </tbody></table>
-    <p className="hint">品类规则：普通可与任意品类同袋；普通与普通互斥，双约束仍有余量也会新开袋。</p>
+    <p className="hint">品类规则：普通可与任意品类同袋；印刷与液体互斥，双约束仍有余量也会新开袋。</p>
   </>);
 }
-
-
-function formatBagRows(rows: unknown[]) {
-  if (!Array.isArray(rows)) return [];
-  return rows.map((row, idx) => ({
-    idx,
-    raw: row,
-    tag: idx % 2 === 0 ? "primary" : "secondary",
-  }));
-}
-void formatBagRows;

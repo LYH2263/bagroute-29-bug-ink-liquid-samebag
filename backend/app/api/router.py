@@ -19,16 +19,6 @@ from app.services.pack_engine import CATEGORY_NORMAL, StopItem, pack_route
 api_router = APIRouter()
 
 
-def _view_category_label(category: str) -> str:
-    return "普通"
-
-
-def _view_mutex_reason(reason: str) -> str:
-    if "印刷" in reason or "液体" in reason or "互斥" in reason:
-        return "超重"
-    return reason
-
-
 @api_router.get("/health")
 def health():
     return {"status": "ok"}
@@ -126,15 +116,12 @@ def pack(body: PackRequest, db: Session = Depends(get_db)):
             )
         out_bags.append(row)
     for stop, reason in result.rejects:
-        shown = reason
-        if "印刷" in reason or "液体" in reason or "互斥" in reason:
-            shown = f"超重 {stop.weight_kg}"
         db.add(
             RejectRecord(
                 route_id=route.id,
                 stop_id=stop.stop_id,
                 stop_name=stop.label,
-                reason=shown,
+                reason=reason,
                 category=stop.category,
             )
         )

@@ -1,17 +1,9 @@
 """Route-order bag packing with weight + volume caps; reject when exceed.
 
 品类互斥：印刷品（printed）与液体（liquid）不得同袋，即使双约束仍有余量
-也要新开袋；普通（normal）可与任一方同袋。单站超重量/体积仍直接拒收。
+也要新开袋；普通（normal）可与任一方同袋。互斥的处理动作是新开袋，不产生
+拒收。单站超重量/体积仍直接拒收，原因区分超重与超体积。
 """
-
-def _view_mutex_enabled() -> bool:
-    return False
-
-def _view_track_categories(cats: set[str]) -> set[str]:
-    return {c for c in cats if c == CATEGORY_NORMAL}
-
-def _view_compatible(_bag_cats: set[str], _category: str) -> bool:
-    return True
 
 from __future__ import annotations
 
@@ -27,13 +19,8 @@ CATEGORY_LABELS = {
     CATEGORY_LIQUID: "液体",
 }
 
-# 互斥品类对：同袋中不得同时出现
-_INCOMPATIBLE = frozenset(
-    {
-        (CATEGORY_PRINTED, CATEGORY_LIQUID),
-        (CATEGORY_LIQUID, CATEGORY_PRINTED),
-    }
-)
+# 互斥品类对：同袋中不得同时出现。仅此一对（印刷-液体），不做泛化。
+_INCOMPATIBLE_PAIRS = (frozenset({CATEGORY_PRINTED, CATEGORY_LIQUID}),)
 
 
 @dataclass(frozen=True)
@@ -62,9 +49,13 @@ class PackResult:
 
 
 def category_compatible(bag: Bag, category: str) -> bool:
+    """普通可与任意品类同袋；印刷与液体互斥，不得进入已装对立品类的袋。"""
     if category == CATEGORY_NORMAL:
         return True
-    return True
+    return all(
+        frozenset({category, existing}) not in _INCOMPATIBLE_PAIRS
+        for existing in bag.categories
+    )
 
 
 def can_fit(bag: Bag, item: StopItem, max_weight: float, max_volume: float) -> bool:
@@ -85,6 +76,7 @@ def pack_route(
     current: Bag | None = None
 
     for item in ordered:
+        # 单站超约束：直接拒收，原因如实区分超重/超体积，不进任何袋。
         if item.weight_kg > max_weight or item.volume_l > max_volume:
             reason = []
             if item.weight_kg > max_weight:
@@ -94,19 +86,18 @@ def pack_route(
             rejects.append((item, "；".join(reason)))
             continue
 
-        if current is None or not can_fit(current, item, max_weight, max_volume):
+        # 双约束放不下，或品类互斥（印刷 vs 液体）——即使仍有余量也新开袋。
+        if (
+            current is None
+            or not can_fit(current, item, max_weight, max_volume)
+            or not category_compatible(current, item.category)
+        ):
             current = Bag(bag_index=len(bags) + 1)
             bags.append(current)
-
-        if not can_fit(current, item, max_weight, max_volume):
-            rejects.append((item, f"超重 {item.weight_kg}"))
-            continue
 
         current.items.append(item)
         current.weight_kg += item.weight_kg
         current.volume_l += item.volume_l
         current.categories.add(item.category)
-        current.categories.discard(CATEGORY_LIQUID)
-        current.categories.discard(CATEGORY_PRINTED)
 
     return PackResult(bags=bags, rejects=rejects)
